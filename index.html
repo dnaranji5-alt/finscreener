@@ -1,12 +1,802 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robust Financial Screener</title>
-  </head>
-  <body>
+    
+    <script>
+        window.addEventListener('error', function(event) {
+            document.body.innerHTML = `
+                <div style="padding: 40px; font-family: system-ui, sans-serif; color: #dc2626;">
+                    <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">Application Initialization Error</h2>
+                    <p style="margin-bottom: 20px;">The application failed to load. This is usually due to a browser compatibility issue or syntax error.</p>
+                    <div style="background: #fee2e2; padding: 20px; border-radius: 8px; font-family: monospace; overflow-x: auto; color: #991b1b;">
+                        ${event.error ? event.error.stack : event.message}
+                    </div>
+                </div>
+            `;
+        });
+    </script>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- CRITICAL FIX: Upgraded from Babel 6 to Babel 7 standalone -->
+    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* App container handles scrolling */
+        }
+    </style>
+</head>
+<body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+    <script type="text/babel" data-presets="react,env">
+        const API_KEY = 'gEZA1HnJ4wGa3bbLcjBluU43hr3T8GKs';
+        const BASE_URL = 'https://financialmodelingprep.com/stable';
+        
+        const TICKERS = [
+            "NVDA", "AVGO", "AMD", "QCOM", "MU", "MRVL", "LRCX", "AMAT", "KLAC", "ASML",
+            "TSM", "ARM", "ADI", "NXPI", "ON", "MPWR", "MCHP", "SWKS", "ENTG", "TER",
+            "SMTC", "CRDO", "ALAB", "COHR", "LITE", "MSFT", "GOOGL", "META", "AMZN", "ORCL",
+            "CRM", "NOW", "ADBE", "INTU", "PANW", "CRWD", "FTNT", "SNOW", "DDOG", "NET",
+            "ZS", "PLTR", "APP", "SHOP", "HUBS", "TEAM", "WDAY", "VEEV", "MDB", "TWLO",
+            "OKTA", "DOCU", "DUOL", "GLOB", "CFLT", "IOT", "FRSH", "ASAN", "BILL", "TOST",
+            "PCOR", "BSY", "CDNS", "SNPS", "ANSS", "FICO", "GEN", "CYBR", "UBER", "ABNB",
+            "BKNG", "DASH", "MELI", "SE", "CPNG", "NU", "SOFI", "HOOD", "COIN", "PYPL",
+            "XYZ", "AFRM", "UPST", "RBLX", "SPOT", "PINS", "RDDT", "ROKU", "TTD", "ETSY",
+            "CVNA", "CAVA", "CELH", "ELF", "ONON", "DECK", "LULU", "CMG", "DPZ", "COST",
+            "WMT", "TJX", "ORLY", "AZO", "ULTA", "FIVE", "DICK", "RH", "WSM", "POOL",
+            "LOW", "HD", "NKE", "EL", "CL", "KDP", "MNST", "LLY", "NVO", "VRTX",
+            "REGN", "GILD", "ABBV", "MRNA", "BNTX", "ALNY", "ARGX", "INCY", "RPRX", "HIMS",
+            "TMDX", "ISRG", "SYK", "BSX", "EW", "DXCM", "PODD", "INSP", "AXON", "IDXX",
+            "RMD", "HOLX", "ALGN", "EXAS", "NTRA", "RVMD", "VKTX", "GE", "GEV", "CAT",
+            "DE", "ETN", "PH", "ROK", "EMR", "HON", "RTX", "TDG", "HWM", "HEI",
+            "URI", "FAST", "PCAR", "CARR", "TT", "JCI", "PWR", "FIX", "VRT", "GNRC",
+            "WAB", "XYL", "ITW", "CTAS", "PAYC", "ADP", "PAYX", "FSLR", "ENPH", "SEDG",
+            "ARRY", "NXT", "BE", "CEG", "VST", "NRG", "NEE", "ET", "LNG", "OKE",
+            "WMB", "EQT", "SLB", "HAL", "BKR", "CCJ", "LEU", "LIN", "APD", "SHW",
+            "ECL", "FCX", "SCCO", "NUE", "STLD", "ALB", "DD", "DOW", "CF", "MOS",
+            "FMC", "RPM", "MLM", "VMC", "AVTR", "BALL", "PKG", "SPGI", "MSCI", "CME",
+            "ICE", "V", "MA", "FIS", "FI", "GPN", "IBKR", "SCHW", "JPM", "GS",
+            "MS", "BX", "KKR", "APO", "ARES", "AMP", "RJF", "RNR", "ACGL", "CPRT",
+            "RSG", "WM", "WCN", "CSX", "UNP", "ODFL", "SAIA", "XPO", "GXO", "EXPD",
+            "CHRW", "JBHT", "KNX", "CNI", "FER", "WELL", "PLD", "EQIX", "DLR", "IRM"
+        ];
+
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, errorInfo: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true };
+            }
+            componentDidCatch(error, errorInfo) {
+                this.setState({ errorInfo: error });
+                console.error("React Error Boundary caught:", error, errorInfo);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-red-50 text-red-900">
+                            <i className="ph ph-warning-circle text-6xl mb-4 text-red-600"></i>
+                            <h1 className="text-2xl font-bold mb-2">Something went wrong rendering the UI.</h1>
+                            <p className="max-w-2xl text-sm opacity-80 whitespace-pre-wrap">
+                                {this.state.errorInfo ? this.state.errorInfo.toString() : 'Unknown Error'}
+                            </p>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        const formatCurrency = (value) => {
+            if (value === null || value === undefined) return 'N/A';
+            if (Math.abs(value) >= 1e12) {
+                return '$' + (value / 1e12).toFixed(2) + 'T';
+            }
+            if (Math.abs(value) >= 1e9) {
+                return '$' + (value / 1e9).toFixed(2) + 'B';
+            }
+            if (Math.abs(value) >= 1e6) {
+                return '$' + (value / 1e6).toFixed(2) + 'M';
+            }
+            return '$' + value.toLocaleString();
+        };
+
+        const FinancialChart = ({ data, title }) => {
+            const chartRef = React.useRef(null);
+            const chartInstance = React.useRef(null);
+
+            React.useEffect(() => {
+                // Cleanup previous instance
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                // Guard rails to prevent crashes
+                if (!chartRef.current || !data || !data.labels || data.labels.length === 0) return;
+
+                const ctx = chartRef.current.getContext('2d');
+                
+                chartInstance.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [...data.labels].reverse(), // Reverse to show oldest to newest
+                        datasets: [
+                            {
+                                label: 'Revenue',
+                                data: [...data.revenue].reverse(),
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointHoverRadius: 6,
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Net Income',
+                                data: [...data.netIncome].reverse(),
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointHoverRadius: 6,
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Free Cash Flow',
+                                data: [...data.freeCashFlow].reverse(),
+                                borderColor: 'rgba(139, 92, 246, 1)',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointHoverRadius: 6,
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${title} - Last 5 Years (Quarterly)`,
+                                font: { size: 16, family: 'Inter', weight: '600' },
+                                color: '#1e293b'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) label += ': ';
+                                        if (context.parsed.y !== null) label += formatCurrency(context.parsed.y);
+                                        return label;
+                                    }
+                                },
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleFont: { family: 'Inter', size: 13 },
+                                bodyFont: { family: 'Inter', size: 13 },
+                                padding: 12,
+                                cornerRadius: 8
+                            },
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20,
+                                    font: { family: 'Inter', size: 12 }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false, drawBorder: false },
+                                ticks: { maxTicksLimit: 10, font: { family: 'Inter', size: 11 }, color: '#64748b' }
+                            },
+                            y: {
+                                grid: { color: '#f1f5f9', drawBorder: false },
+                                ticks: {
+                                    callback: function(value) { return formatCurrency(value); },
+                                    font: { family: 'Inter', size: 11 }, color: '#64748b'
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [data, title]);
+
+            return (
+                <div className="relative w-full h-[400px] bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <canvas ref={chartRef}></canvas>
+                </div>
+            );
+        };
+
+        const TickerCard = ({ symbol }) => {
+            const [financialData, setFinancialData] = React.useState(null);
+            const [quoteData, setQuoteData] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+
+            React.useEffect(() => {
+                let isMounted = true;
+
+                const fetchFinancialData = async () => {
+                    setLoading(true);
+                    setError(null);
+                    try {
+                        // Fetch Quote Data
+                        const quoteRes = await fetch(`${BASE_URL}/quote?symbol=${symbol}&apikey=${API_KEY}`);
+                        if (!quoteRes.ok) throw new Error(`Quote fetch failed (${quoteRes.status})`);
+                        const quoteJson = await quoteRes.json();
+                        
+                        if (quoteJson && quoteJson['Error Message']) {
+                            throw new Error(`API Error: ${quoteJson['Error Message']}`);
+                        }
+
+                        // Fetch Income Statement
+                        const incomeRes = await fetch(`${BASE_URL}/income-statement?symbol=${symbol}&period=Quarterly&limit=24&apikey=${API_KEY}`);
+                        if (!incomeRes.ok) throw new Error(`Income Statement fetch failed (${incomeRes.status})`);
+                        const incomeData = await incomeRes.json();
+
+                        // Safely check for API rate limits
+                        if (incomeData && incomeData['Error Message']) {
+                            throw new Error(`API Error: ${incomeData['Error Message']}`);
+                        }
+                        if (!Array.isArray(incomeData)) {
+                            throw new Error("Received unexpected data format from API.");
+                        }
+
+                        // Fetch Cash Flow Statement
+                        const cashFlowRes = await fetch(`${BASE_URL}/cash-flow-statement?symbol=${symbol}&period=Quarterly&limit=24&apikey=${API_KEY}`);
+                        if (!cashFlowRes.ok) throw new Error(`Cash Flow fetch failed (${cashFlowRes.status})`);
+                        const cashFlowData = await cashFlowRes.json();
+
+                        if (cashFlowData && cashFlowData['Error Message']) {
+                            throw new Error(`API Error: ${cashFlowData['Error Message']}`);
+                        }
+
+                        if (!incomeData || incomeData.length === 0) {
+                            throw new Error("No financial data found for this ticker.");
+                        }
+
+                        // Limit to 5 years (20 quarters)
+                        const limit = 20; 
+                        const recentIncome = incomeData.slice(0, limit);
+                        
+                        const processedData = {
+                            labels: [],
+                            revenue: [],
+                            netIncome: [],
+                            freeCashFlow: []
+                        };
+
+                        // Process and align data
+                        recentIncome.forEach(incItem => {
+                            const cfItem = cashFlowData.find(cf => cf.date === incItem.date && cf.period === incItem.period);
+                            const label = incItem.period && incItem.calendarYear 
+                                ? `${incItem.period} '${incItem.calendarYear.toString().slice(-2)}` 
+                                : incItem.date;
+
+                            processedData.labels.push(label);
+                            processedData.revenue.push(incItem.revenue || 0);
+                            processedData.netIncome.push(incItem.netIncome || 0);
+                            processedData.freeCashFlow.push(cfItem ? (cfItem.freeCashFlow || 0) : 0);
+                        });
+
+                        if (isMounted) {
+                            setFinancialData(processedData);
+                            if (quoteJson && quoteJson.length > 0) {
+                                setQuoteData(quoteJson[0]);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching data for ${symbol}:`, err);
+                        if (isMounted) {
+                            setError(err.message || "An unexpected error occurred while fetching data.");
+                            setFinancialData(null);
+                        }
+                    } finally {
+                        if (isMounted) setLoading(false);
+                    }
+                };
+
+                fetchFinancialData();
+
+                return () => { isMounted = false; };
+            }, [symbol]);
+
+            // Calculate TTM and Valuation Multiples
+            let ttmRev = 0, ttmNi = 0, ttmFcf = 0;
+            let ps = 'N/A', pe = 'N/A', pfcf = 'N/A';
+            
+            if (financialData && financialData.revenue.length > 0) {
+                ttmRev = financialData.revenue.slice(0, 4).reduce((sum, val) => sum + (val || 0), 0);
+                ttmNi = financialData.netIncome.slice(0, 4).reduce((sum, val) => sum + (val || 0), 0);
+                ttmFcf = financialData.freeCashFlow.slice(0, 4).reduce((sum, val) => sum + (val || 0), 0);
+                
+                const mktCap = quoteData?.marketCap;
+                if (mktCap) {
+                    ps = ttmRev > 0 ? (mktCap / ttmRev).toFixed(2) : 'N/A';
+                    pe = ttmNi > 0 ? (mktCap / ttmNi).toFixed(2) : (ttmNi < 0 ? 'Neg' : 'N/A');
+                    pfcf = ttmFcf > 0 ? (mktCap / ttmFcf).toFixed(2) : (ttmFcf < 0 ? 'Neg' : 'N/A');
+                }
+            }
+
+            return (
+                <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden mb-8">
+                    {/* Header Summary */}
+                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                                {symbol}
+                            </h2>
+                            {quoteData && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-lg font-bold text-slate-800">
+                                        ${(quoteData.price || 0).toFixed(2)}
+                                    </span>
+                                    <span className={`text-sm font-semibold px-2 py-0.5 rounded-md ${
+                                        (quoteData.change || 0) >= 0 
+                                            ? 'bg-emerald-100 text-emerald-700' 
+                                            : 'bg-red-100 text-red-700'
+                                    }`}>
+                                        {(quoteData.change || 0) >= 0 ? '+' : ''}{(quoteData.change || 0).toFixed(2)} ({(quoteData.changesPercentage || (quoteData.change / (quoteData.price - quoteData.change) * 100) || 0).toFixed(2)}%)
+                                    </span>
+                                    {quoteData.marketCap && (
+                                        <span className="text-sm font-medium text-slate-500 ml-2 border-l border-slate-300 pl-4">
+                                            Mkt Cap: {formatCurrency(quoteData.marketCap)}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {financialData && financialData.labels.length > 0 && !loading && (
+                            <div className="flex flex-wrap gap-4 sm:gap-8 text-sm w-full sm:w-auto mt-4 sm:mt-0">
+                                <div className="text-left sm:text-right flex-1 sm:flex-none">
+                                    <div className="text-slate-500 text-xs font-medium uppercase tracking-wider">TTM Rev</div>
+                                    <div className="font-semibold text-blue-600 text-base">{formatCurrency(ttmRev)}</div>
+                                    <div className="text-slate-500 text-[11px] mt-0.5 font-medium">P/S: <span className="text-slate-700">{ps}</span></div>
+                                </div>
+                                <div className="text-left sm:text-right flex-1 sm:flex-none">
+                                    <div className="text-slate-500 text-xs font-medium uppercase tracking-wider">TTM NI</div>
+                                    <div className="font-semibold text-emerald-600 text-base">{formatCurrency(ttmNi)}</div>
+                                    <div className="text-slate-500 text-[11px] mt-0.5 font-medium">P/E: <span className="text-slate-700">{pe}</span></div>
+                                </div>
+                                <div className="text-left sm:text-right flex-1 sm:flex-none">
+                                    <div className="text-slate-500 text-xs font-medium uppercase tracking-wider">TTM FCF</div>
+                                    <div className="font-semibold text-purple-600 text-base">{formatCurrency(ttmFcf)}</div>
+                                    <div className="text-slate-500 text-[11px] mt-0.5 font-medium">P/FCF: <span className="text-slate-700">{pfcf}</span></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Content Area */}
+                    <div className="p-4 sm:p-6 bg-slate-50/50">
+                        {loading ? (
+                            <div className="h-[400px] flex flex-col items-center justify-center space-y-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                                <p className="text-slate-500 font-medium">Fetching 5-year financials for {symbol}...</p>
+                            </div>
+                        ) : error ? (
+                            <div className="h-[400px] bg-red-50/80 text-red-700 p-8 rounded-xl border border-red-100 flex flex-col items-center justify-center gap-3 text-center">
+                                <i className="ph ph-warning-octagon text-4xl text-red-500"></i>
+                                <h3 className="font-bold text-lg">Failed to load data</h3>
+                                <p className="text-sm max-w-md opacity-80">{error}</p>
+                            </div>
+                        ) : financialData && financialData.labels.length > 0 ? (
+                            <FinancialChart data={financialData} title={symbol} />
+                        ) : (
+                            <div className="h-[400px] flex items-center justify-center text-slate-500 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <i className="ph ph-chart-line-down text-3xl mr-2 opacity-50"></i>
+                                <span>No quarterly data available for {symbol}.</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const FilterTab = ({ tickers }) => {
+            const [data, setData] = React.useState([]);
+            const [loadingIdx, setLoadingIdx] = React.useState(0);
+            const [isScanning, setIsScanning] = React.useState(false);
+            
+            const [filters, setFilters] = React.useState({
+                peMin: '', peMax: '',
+                psMin: '', psMax: '',
+                pfcfMin: '', pfcfMax: ''
+            });
+
+            const startScan = () => {
+                if (loadingIdx === 0 || loadingIdx === tickers.length) {
+                    setData([]);
+                    setLoadingIdx(0);
+                }
+                setIsScanning(true);
+            };
+
+            const stopScan = () => setIsScanning(false);
+
+            React.useEffect(() => {
+                if (!isScanning) return;
+                
+                let isMounted = true;
+                const fetchNext = async () => {
+                    if (loadingIdx >= tickers.length) {
+                        setIsScanning(false);
+                        return;
+                    }
+                    
+                    const symbol = tickers[loadingIdx];
+                    
+                    try {
+                        const quoteRes = await fetch(`${BASE_URL}/quote?symbol=${symbol}&apikey=${API_KEY}`);
+                        const quoteJson = await quoteRes.json();
+                        
+                        const incomeRes = await fetch(`${BASE_URL}/income-statement?symbol=${symbol}&period=Quarterly&limit=4&apikey=${API_KEY}`);
+                        const incomeData = await incomeRes.json();
+                        
+                        const cashFlowRes = await fetch(`${BASE_URL}/cash-flow-statement?symbol=${symbol}&period=Quarterly&limit=4&apikey=${API_KEY}`);
+                        const cashFlowData = await cashFlowRes.json();
+                        
+                        if (isMounted) {
+                            let pe = null, ps = null, pfcf = null;
+                            const mktCap = quoteJson?.[0]?.marketCap;
+                            
+                            if (mktCap && Array.isArray(incomeData) && Array.isArray(cashFlowData)) {
+                                const ttmRev = incomeData.reduce((sum, val) => sum + (val.revenue || 0), 0);
+                                const ttmNi = incomeData.reduce((sum, val) => sum + (val.netIncome || 0), 0);
+                                const ttmFcf = cashFlowData.reduce((sum, val) => sum + (val.freeCashFlow || 0), 0);
+                                
+                                if (ttmRev > 0) ps = mktCap / ttmRev;
+                                if (ttmNi > 0) pe = mktCap / ttmNi;
+                                if (ttmFcf > 0) pfcf = mktCap / ttmFcf;
+                            }
+                            
+                            setData(prev => [...prev, { symbol, ps, pe, pfcf, mktCap }]);
+                            setLoadingIdx(prev => prev + 1);
+                        }
+                    } catch (err) {
+                        if (isMounted) {
+                            setData(prev => [...prev, { symbol, error: true }]);
+                            setLoadingIdx(prev => prev + 1);
+                        }
+                    }
+                };
+                
+                // 100ms delay to prevent API rate limiting
+                const timer = setTimeout(fetchNext, 100);
+                return () => { isMounted = false; clearTimeout(timer); };
+            }, [isScanning, loadingIdx, tickers]);
+
+            const handleFilterChange = (e) => {
+                setFilters({ ...filters, [e.target.name]: e.target.value });
+            };
+
+            const filteredData = data.filter(item => {
+                if (item.error) return false;
+                
+                const checkMinMax = (val, min, max) => {
+                    if (val === null || val === undefined || isNaN(val)) return false;
+                    if (min !== '' && val < parseFloat(min)) return false;
+                    if (max !== '' && val > parseFloat(max)) return false;
+                    return true;
+                };
+
+                const hasFilters = Object.values(filters).some(v => v !== '');
+                if (!hasFilters) return true;
+
+                let pass = true;
+                if (filters.peMin !== '' || filters.peMax !== '') pass = pass && checkMinMax(item.pe, filters.peMin, filters.peMax);
+                if (filters.psMin !== '' || filters.psMax !== '') pass = pass && checkMinMax(item.ps, filters.psMin, filters.psMax);
+                if (filters.pfcfMin !== '' || filters.pfcfMax !== '') pass = pass && checkMinMax(item.pfcf, filters.pfcfMin, filters.pfcfMax);
+
+                return pass;
+            });
+
+            return (
+                <div className="flex flex-col h-full overflow-hidden bg-slate-50 flex-1">
+                    <div className="px-4 py-3 bg-white border-b border-slate-200 shadow-sm z-0 flex-shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-lg font-bold text-slate-800">Metrics Filter</h2>
+                                {!isScanning && loadingIdx < tickers.length ? (
+                                    <button onClick={startScan} className="bg-blue-600 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-blue-700 transition-colors shadow-sm">
+                                        {loadingIdx > 0 ? 'Resume' : 'Start Scan'}
+                                    </button>
+                                ) : isScanning ? (
+                                    <button onClick={stopScan} className="bg-red-500 text-white px-3 py-1 rounded-md text-xs font-semibold hover:bg-red-600 transition-colors shadow-sm">
+                                        Pause
+                                    </button>
+                                ) : (
+                                    <button onClick={startScan} className="bg-slate-200 text-slate-700 px-3 py-1 rounded-md text-xs font-semibold hover:bg-slate-300 transition-colors">
+                                        Restart
+                                    </button>
+                                )}
+                            </div>
+                            
+                            {/* Compact Progress Bar */}
+                            <div className="flex-1 w-full sm:max-w-xs flex items-center gap-2">
+                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+                                    <div className="bg-blue-500 h-1.5 transition-all duration-300" style={{ width: `${(loadingIdx / tickers.length) * 100}%` }}></div>
+                                </div>
+                                <div className="text-[10px] font-medium text-slate-500 whitespace-nowrap">
+                                    {loadingIdx}/{tickers.length}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Filters */}
+                        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">P/E Ratio</label>
+                                <div className="flex gap-1">
+                                    <input type="number" name="peMin" placeholder="Min" value={filters.peMin} onChange={handleFilterChange} className="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:border-blue-500 outline-none transition-colors shadow-inner" />
+                                    <input type="number" name="peMax" placeholder="Max" value={filters.peMax} onChange={handleFilterChange} className="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:border-blue-500 outline-none transition-colors shadow-inner" />
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">P/S Ratio</label>
+                                <div className="flex gap-1">
+                                    <input type="number" name="psMin" placeholder="Min" value={filters.psMin} onChange={handleFilterChange} className="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:border-blue-500 outline-none transition-colors shadow-inner" />
+                                    <input type="number" name="psMax" placeholder="Max" value={filters.psMax} onChange={handleFilterChange} className="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:border-blue-500 outline-none transition-colors shadow-inner" />
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">P/FCF Ratio</label>
+                                <div className="flex gap-1">
+                                    <input type="number" name="pfcfMin" placeholder="Min" value={filters.pfcfMin} onChange={handleFilterChange} className="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:border-blue-500 outline-none transition-colors shadow-inner" />
+                                    <input type="number" name="pfcfMax" placeholder="Max" value={filters.pfcfMax} onChange={handleFilterChange} className="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:border-blue-500 outline-none transition-colors shadow-inner" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-auto p-4 sm:p-6">
+                        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden max-w-4xl mx-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-6 py-4 font-bold">Ticker</th>
+                                        <th className="px-6 py-4 font-bold">P/E Ratio</th>
+                                        <th className="px-6 py-4 font-bold">P/S Ratio</th>
+                                        <th className="px-6 py-4 font-bold">P/FCF Ratio</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredData.map((row, i) => (
+                                        <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-900">{row.symbol}</td>
+                                            <td className="px-6 py-4 text-slate-600 font-medium">{row.pe !== null ? (row.pe > 0 ? row.pe.toFixed(2) : <span className="text-slate-400">Neg</span>) : <span className="text-slate-400">N/A</span>}</td>
+                                            <td className="px-6 py-4 text-slate-600 font-medium">{row.ps !== null ? row.ps.toFixed(2) : <span className="text-slate-400">N/A</span>}</td>
+                                            <td className="px-6 py-4 text-slate-600 font-medium">{row.pfcf !== null ? (row.pfcf > 0 ? row.pfcf.toFixed(2) : <span className="text-slate-400">Neg</span>) : <span className="text-slate-400">N/A</span>}</td>
+                                        </tr>
+                                    ))}
+                                    {filteredData.length === 0 && loadingIdx > 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="text-center py-12 text-slate-500">
+                                                <i className="ph ph-magnifying-glass text-4xl mb-3 opacity-30 block"></i>
+                                                No tickers match your current filters.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {loadingIdx === 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="text-center py-16 text-slate-500">
+                                                <i className="ph ph-play-circle text-4xl mb-3 opacity-30 block"></i>
+                                                Click "Start Scan" above to fetch metrics for your list.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [tickersList, setTickersList] = React.useState(TICKERS);
+            const [searchQuery, setSearchQuery] = React.useState('');
+            const [addQuery, setAddQuery] = React.useState('');
+            // Lazy load batch size
+            const [visibleCount, setVisibleCount] = React.useState(10);
+            
+            // Tab state
+            const [activeTab, setActiveTab] = React.useState('feed');
+
+            // Filter tickers based on search query
+            const filteredTickers = React.useMemo(() => {
+                if (!searchQuery) return tickersList;
+                return tickersList.filter(ticker => 
+                    ticker.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }, [searchQuery, tickersList]);
+
+            const handleAddTicker = (e) => {
+                e.preventDefault();
+                const newTicker = addQuery.trim().toUpperCase();
+                if (!newTicker) return;
+                
+                if (!tickersList.includes(newTicker)) {
+                    // Add the new ticker to the very beginning of the list
+                    setTickersList(prev => [newTicker, ...prev]);
+                }
+                setAddQuery('');
+                setSearchQuery(''); // Clear search so the newly added ticker is visible at the top
+            };
+
+            // Handle infinite scroll / loading more
+            const handleScroll = React.useCallback((e) => {
+                const target = e.target;
+                // If user scrolls near the bottom of the feed
+                if (target.scrollHeight - target.scrollTop <= target.clientHeight + 1200) {
+                    if (visibleCount < filteredTickers.length) {
+                        setVisibleCount(prev => Math.min(prev + 5, filteredTickers.length));
+                    }
+                }
+            }, [visibleCount, filteredTickers.length]);
+
+            // Reset visible count on new search
+            React.useEffect(() => {
+                setVisibleCount(10);
+            }, [searchQuery]);
+
+            return (
+                <div className="flex flex-col h-screen w-full bg-slate-100 text-slate-900">
+                    
+                    {/* Header bar - Sticky top */}
+                    <div className="bg-white border-b border-slate-200 px-4 py-2 shadow-sm z-10 flex flex-col sm:flex-row justify-between items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-4 sm:block w-full sm:w-auto justify-between">
+                            <div className="flex items-center gap-1.5">
+                                <h1 className="text-xl font-black text-slate-800 flex items-center gap-1.5">
+                                    <i className="ph-fill ph-trend-up text-blue-600"></i>
+                                    FinScreener
+                                </h1>
+                                <p className="text-[10px] text-slate-500 font-medium sm:mt-0.5 hidden lg:block ml-2">5-Year Quarterly Visual Analysis</p>
+                            </div>
+                            
+                            {/* Tab Navigation */}
+                            <div className="flex bg-slate-100 p-1 rounded-lg sm:mt-1">
+                                <button 
+                                    onClick={() => setActiveTab('feed')}
+                                    className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${activeTab === 'feed' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Charts Feed
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('filter')}
+                                    className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${activeTab === 'filter' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Metrics Filter
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex w-full sm:w-auto gap-2">
+                            <form onSubmit={handleAddTicker} className="relative w-1/2 sm:w-40">
+                                <i className="ph ph-plus absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 text-base"></i>
+                                <input 
+                                    type="text" 
+                                    placeholder="Add ticker..." 
+                                    className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all outline-none font-medium placeholder-slate-400 shadow-inner uppercase"
+                                    value={addQuery}
+                                    onChange={(e) => setAddQuery(e.target.value)}
+                                />
+                            </form>
+
+                            <div className="relative w-1/2 sm:w-56">
+                                <i className="ph ph-magnifying-glass absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 text-base"></i>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search screener..." 
+                                    className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all outline-none font-medium placeholder-slate-400 shadow-inner"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content Area */}
+                    {activeTab === 'feed' ? (
+                        <div 
+                            className="flex-1 overflow-y-auto p-4 sm:p-8"
+                            onScroll={handleScroll}
+                        >
+                            <div className="max-w-4xl mx-auto pb-20">
+                                {filteredTickers.length === 0 ? (
+                                    <div className="text-center py-20 text-slate-500 flex flex-col items-center">
+                                        <i className="ph ph-magnifying-glass text-5xl mb-3 opacity-30"></i>
+                                        <h3 className="text-lg font-semibold text-slate-700">No matches found</h3>
+                                        <p>Try adjusting your search query.</p>
+                                    </div>
+                                ) : (
+                                <>
+                                    {filteredTickers.slice(0, visibleCount).map(ticker => (
+                                        <TickerCard key={ticker} symbol={ticker} />
+                                    ))}
+                                    
+                                    {/* Loading indicator for infinite scroll */}
+                                    {visibleCount < filteredTickers.length && (
+                                        <div className="text-center py-12 text-slate-500 flex flex-col items-center justify-center bg-transparent">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-400 mb-3"></div>
+                                            <span className="font-medium">Loading next batch of charts...</span>
+                                        </div>
+                                    )}
+                                    
+                                    {/* End of list indicator */}
+                                    {visibleCount >= filteredTickers.length && filteredTickers.length > 0 && (
+                                        <div className="text-center py-12 text-slate-400 font-medium flex items-center justify-center gap-2">
+                                            <hr className="w-12 border-slate-300" />
+                                            <span>End of screener list</span>
+                                            <hr className="w-12 border-slate-300" />
+                                        </div>
+                                    )}
+                                </>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <FilterTab tickers={tickersList} />
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
+    </script>
+</body>
 </html>
